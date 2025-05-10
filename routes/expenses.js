@@ -6,11 +6,12 @@ const {
   expenseValidation,
 } = require("../middleware/validate");
 const Expense = require("../models/Expense");
-const { redisClient } = require("../config/redis");
+const { getRedisClient } = require("../config/redis");
 const { publishToQueue } = require("../config/rabbitmq");
 
 // Helper function to invalidate Redis cache for monthly summaries
 const invalidateMonthlyCache = async (userId) => {
+  const redisClient = await getRedisClient();
   const keys = await redisClient.keys(`monthly_summary:${userId}:*`);
   if (keys.length > 0) {
     await redisClient.del(keys);
@@ -217,6 +218,7 @@ router.get("/summary/monthly", auth, async (req, res) => {
     const cacheKey = `monthly_summary:${req.user.id}:${monthYear}`;
 
     // Try to get data from Redis cache
+    const redisClient = await getRedisClient();
     const cachedData = await redisClient.get(cacheKey);
 
     if (cachedData) {
@@ -225,8 +227,11 @@ router.get("/summary/monthly", auth, async (req, res) => {
     }
 
     // If not in cache, calculate summary
-    const startDate = new Date(`${year}-${month}-01`);
-    const endDate = new Date(year, month, 0); // Last day of the month
+    const monthInt = parseInt(month, 10);
+    const yearInt = parseInt(year, 10);
+
+    const startDate = new Date(yearInt, monthInt - 1, 1);
+    const endDate = new Date(yearInt, monthInt, 0); // Last day of the month
     endDate.setHours(23, 59, 59, 999);
 
     // Aggregate expenses by category for the specified month
@@ -248,7 +253,6 @@ router.get("/summary/monthly", auth, async (req, res) => {
         $sort: { total: -1 },
       },
     ]);
-
     // Calculate total amount
     const totalAmount = summary.reduce((acc, curr) => acc + curr.total, 0);
 
