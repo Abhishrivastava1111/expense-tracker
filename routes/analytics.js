@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/auth");
-const { redisClient } = require("../config/redis");
+const { getRedisClient } = require("../config/redis");
 const { publishToQueue } = require("../config/rabbitmq");
 const Expense = require("../models/Expense");
 
@@ -14,6 +14,7 @@ router.get("/summary", auth, async (req, res) => {
     const cacheKey = `analytics_summary:${userId}`;
 
     // Try to get data from Redis cache
+    const redisClient = await getRedisClient();
     const cachedData = await redisClient.get(cacheKey);
 
     if (cachedData) {
@@ -114,6 +115,8 @@ router.get("/patterns", auth, async (req, res) => {
     const cacheKey = `spending_patterns:${userId}`;
 
     // Try to get data from Redis cache
+    const redisClient = await getRedisClient();
+
     const cachedData = await redisClient.get(cacheKey);
 
     if (cachedData) {
@@ -146,6 +149,7 @@ router.get("/patterns/status", auth, async (req, res) => {
     const userId = req.user.id;
     const cacheKey = `spending_patterns:${userId}`;
 
+    const redisClient = await getRedisClient();
     // Check if analysis exists in Redis
     const cachedData = await redisClient.get(cacheKey);
 

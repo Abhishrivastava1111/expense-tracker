@@ -1,10 +1,16 @@
 const jwt = require("jsonwebtoken");
-const { redisClient } = require("../config/redis");
+const { getRedisClient } = require("../config/redis");
 const User = require("../models/User");
+const { log } = require("winston");
 
 const auth = async (req, res, next) => {
   try {
     // Get token from header
+    if (!req.header("Authorization")) {
+      return res
+        .status(401)
+        .json({ message: "No token, authorization denied" });
+    }
     const token = req.header("Authorization").replace("Bearer ", "");
     if (!token) {
       return res
@@ -13,6 +19,7 @@ const auth = async (req, res, next) => {
     }
 
     // First, check if token is stored in Redis cache
+     const redisClient = await getRedisClient();
     const cachedUser = await redisClient.get(`auth_${token}`);
 
     if (cachedUser) {
