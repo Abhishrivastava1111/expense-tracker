@@ -30,7 +30,8 @@ const connectRabbitMQ = async () => {
 const publishToQueue = async (queueName, data) => {
   try {
     if (!channel) {
-      throw new Error("RabbitMQ channel not initialized");
+      // If channel not initialized, connect first
+      await connectRabbitMQ();
     }
 
     return channel.sendToQueue(queueName, Buffer.from(JSON.stringify(data)), {
