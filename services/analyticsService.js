@@ -73,7 +73,118 @@ const generateOverallSummary = async (userId) => {
         label: `${monthNames[item._id.month - 1]} ${item._id.year}`,
       };
 
+     
+
+
+     
+    });
+
+    return {
+      totalSpent,
+      categoryBreakdown: categoryBreakdown.map((item) => ({
+        category: item._id,
+        total: item.total,
+        percentage: (item.total / totalSpent) * 100,
+      })),
+      monthlySpending: formattedMonthlySpending,
+    };
+  } catch (error) {
+    console.error("Error generating overall summary:", error);
+    throw error;
+  }
+};
       /**
+       * Generate email summary content
+       * @param {string} userId - User ID
+       * @param {string} period - Period type (weekly, monthly, custom)
+       * @param {Date} startDate - Start date
+       * @param {Date} endDate - End date
+       * @returns {Promise<Object>} - Email content data
+       */
+      const generateEmailSummary = async (
+        userId,
+        period,
+        startDate,
+        endDate
+      ) => {
+        try {
+          // Get user info
+          const user = await User.findById(userId);
+          if (!user) {
+            throw new Error("User not found");
+          }
+
+          // Get expenses for the period
+          const expenses = await Expense.find({
+            user: userId,
+            date: { $gte: startDate, $lte: endDate },
+          }).sort({ date: -1 });
+
+          // If no expenses, return early
+          if (expenses.length === 0) {
+            return {
+              userName: user.name,
+              userEmail: user.email,
+              period,
+              startDate,
+              endDate,
+              totalSpent: 0,
+              categoryBreakdown: [],
+              expenses: [],
+              message: "No expenses found for this period.",
+            };
+          }
+
+          // Calculate total spent
+          const totalSpent = expenses.reduce(
+            (sum, expense) => sum + expense.amount,
+            0
+          );
+
+          // Group by category
+          const categoriesMap = {};
+          expenses.forEach((expense) => {
+            if (!categoriesMap[expense.category]) {
+              categoriesMap[expense.category] = {
+                category: expense.category,
+                total: 0,
+                count: 0,
+              };
+            }
+
+            categoriesMap[expense.category].total += expense.amount;
+            categoriesMap[expense.category].count += 1;
+          });
+
+          // Convert to array and calculate percentages
+          const categoryBreakdown = Object.values(categoriesMap).map(
+            (category) => ({
+              ...category,
+              percentage: (category.total / totalSpent) * 100,
+            })
+          );
+
+          // Sort by total
+          categoryBreakdown.sort((a, b) => b.total - a.total);
+
+          return {
+            userName: user.name,
+            userEmail: user.email,
+            period,
+            startDate,
+            endDate,
+            totalSpent,
+            categoryBreakdown,
+            expenses,
+            message: `Expense summary for ${period} period from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}.`,
+          };
+        } catch (error) {
+          console.error("Error generating email summary:", error);
+          throw error;
+        }
+      };
+
+ /**
        * Analyze spending patterns
        * @param {string} userId - User ID
        * @returns {Promise<Object>} - Analysis results
@@ -349,115 +460,8 @@ const generateOverallSummary = async (userId) => {
         }
       };
 
-      /**
-       * Generate email summary content
-       * @param {string} userId - User ID
-       * @param {string} period - Period type (weekly, monthly, custom)
-       * @param {Date} startDate - Start date
-       * @param {Date} endDate - End date
-       * @returns {Promise<Object>} - Email content data
-       */
-      const generateEmailSummary = async (
-        userId,
-        period,
-        startDate,
-        endDate
-      ) => {
-        try {
-          // Get user info
-          const user = await User.findById(userId);
-          if (!user) {
-            throw new Error("User not found");
-          }
-
-          // Get expenses for the period
-          const expenses = await Expense.find({
-            user: userId,
-            date: { $gte: startDate, $lte: endDate },
-          }).sort({ date: -1 });
-
-          // If no expenses, return early
-          if (expenses.length === 0) {
-            return {
-              userName: user.name,
-              userEmail: user.email,
-              period,
-              startDate,
-              endDate,
-              totalSpent: 0,
-              categoryBreakdown: [],
-              expenses: [],
-              message: "No expenses found for this period.",
-            };
-          }
-
-          // Calculate total spent
-          const totalSpent = expenses.reduce(
-            (sum, expense) => sum + expense.amount,
-            0
-          );
-
-          // Group by category
-          const categoriesMap = {};
-          expenses.forEach((expense) => {
-            if (!categoriesMap[expense.category]) {
-              categoriesMap[expense.category] = {
-                category: expense.category,
-                total: 0,
-                count: 0,
-              };
-            }
-
-            categoriesMap[expense.category].total += expense.amount;
-            categoriesMap[expense.category].count += 1;
-          });
-
-          // Convert to array and calculate percentages
-          const categoryBreakdown = Object.values(categoriesMap).map(
-            (category) => ({
-              ...category,
-              percentage: (category.total / totalSpent) * 100,
-            })
-          );
-
-          // Sort by total
-          categoryBreakdown.sort((a, b) => b.total - a.total);
-
-          return {
-            userName: user.name,
-            userEmail: user.email,
-            period,
-            startDate,
-            endDate,
-            totalSpent,
-            categoryBreakdown,
-            expenses,
-            message: `Expense summary for ${period} period from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}.`,
-          };
-        } catch (error) {
-          console.error("Error generating email summary:", error);
-          throw error;
-        }
-      };
-
-      module.exports = {
-        generateOverallSummary,
-        analyzeSpendingPatterns,
-        generateEmailSummary,
-      };
-    });
-
-    return {
-      totalSpent,
-      categoryBreakdown: categoryBreakdown.map((item) => ({
-        category: item._id,
-        total: item.total,
-        percentage: (item.total / totalSpent) * 100,
-      })),
-      monthlySpending: formattedMonthlySpending,
-    };
-  } catch (error) {
-    console.error("Error generating overall summary:", error);
-    throw error;
-  }
-};
+       module.exports = {
+         generateOverallSummary,
+         analyzeSpendingPatterns,
+         generateEmailSummary,
+       };

@@ -1,5 +1,7 @@
 require("dotenv").config();
 const nodemailer = require("nodemailer");
+const mongoose = require("mongoose");
+
 const { connectRabbitMQ, consumeFromQueue } = require("../config/rabbitmq");
 const { connectRedis } = require("../config/redis");
 const { generateEmailSummary } = require("../services/analyticsService");
@@ -136,6 +138,9 @@ const transporter = nodemailer.createTransport({
 // Process email queue
 const processEmailQueue = async () => {
   try {
+      await mongoose.connect(process.env.MONGODB_URI);
+        console.log("Connected to MongoDB");
+    
     // Connect to Redis
     await connectRedis();
 
@@ -189,3 +194,5 @@ const processEmailQueue = async () => {
 
 // Start the worker
 processEmailQueue();
+
+

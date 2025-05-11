@@ -8,6 +8,7 @@ const {
 const Expense = require("../models/Expense");
 const { getRedisClient } = require("../config/redis");
 const { publishToQueue } = require("../config/rabbitmq");
+const mongoose = require("mongoose");
 
 // Helper function to invalidate Redis cache for monthly summaries
 const invalidateMonthlyCache = async (userId) => {
@@ -238,7 +239,7 @@ router.get("/summary/monthly", auth, async (req, res) => {
     const summary = await Expense.aggregate([
       {
         $match: {
-          user: req.user.id,
+          user: new mongoose.Types.ObjectId(req.user.id),
           date: { $gte: startDate, $lte: endDate },
         },
       },

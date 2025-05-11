@@ -1,4 +1,4 @@
-const { redisClient } = require("../config/redis");
+const { getRedisClient } = require("../config/redis");
 
 /**
  * Cache monthly expense summaries
@@ -20,6 +20,7 @@ const cacheMonthlyExpenseSummary = async (
     const monthYear = `${year}-${month.padStart(2, "0")}`;
     const cacheKey = `monthly_summary:${userId}:${monthYear}`;
 
+    const redisClient = await getRedisClient();
     await redisClient.set(cacheKey, JSON.stringify(data), { EX: ttl });
 
     return true;
@@ -40,7 +41,7 @@ const getMonthlyExpenseSummary = async (userId, month, year) => {
   try {
     const monthYear = `${year}-${month.padStart(2, "0")}`;
     const cacheKey = `monthly_summary:${userId}:${monthYear}`;
-
+    const redisClient = await getRedisClient();
     const cachedData = await redisClient.get(cacheKey);
 
     if (!cachedData) {
@@ -62,6 +63,7 @@ const getMonthlyExpenseSummary = async (userId, month, year) => {
 const invalidateUserSummaries = async (userId) => {
   try {
     const pattern = `monthly_summary:${userId}:*`;
+    const redisClient = await getRedisClient();
     const keys = await redisClient.keys(pattern);
 
     if (keys.length > 0) {
@@ -85,10 +87,11 @@ const invalidateUserSummaries = async (userId) => {
 const storeSpendingPatterns = async (userId, data, ttl = 86400) => {
   try {
     const cacheKey = `spending_patterns:${userId}`;
-
+    const redisClient = await getRedisClient();
     await redisClient.set(cacheKey, JSON.stringify(data), { EX: ttl });
 
     // Also remove the processing flag
+
     await redisClient.del(`spending_patterns_processing:${userId}`);
 
     return true;
@@ -107,7 +110,7 @@ const storeSpendingPatterns = async (userId, data, ttl = 86400) => {
 const markSpendingPatternsProcessing = async (userId, ttl = 300) => {
   try {
     const processingKey = `spending_patterns_processing:${userId}`;
-
+    const redisClient = await getRedisClient();
     await redisClient.set(processingKey, "true", { EX: ttl });
 
     return true;
@@ -125,7 +128,7 @@ const markSpendingPatternsProcessing = async (userId, ttl = 300) => {
 const getSpendingPatterns = async (userId) => {
   try {
     const cacheKey = `spending_patterns:${userId}`;
-
+    const redisClient = await getRedisClient();
     const cachedData = await redisClient.get(cacheKey);
 
     if (!cachedData) {
@@ -147,7 +150,7 @@ const getSpendingPatterns = async (userId) => {
 const isSpendingPatternsProcessing = async (userId) => {
   try {
     const processingKey = `spending_patterns_processing:${userId}`;
-
+    const redisClient = await getRedisClient();
     const processing = await redisClient.get(processingKey);
 
     return !!processing;
