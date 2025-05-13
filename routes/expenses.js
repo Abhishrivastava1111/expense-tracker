@@ -9,15 +9,7 @@ const Expense = require("../models/Expense");
 const { getRedisClient } = require("../config/redis");
 const { publishToQueue } = require("../config/rabbitmq");
 const mongoose = require("mongoose");
-
-// Helper function to invalidate Redis cache for monthly summaries
-const invalidateMonthlyCache = async (userId) => {
-  const redisClient = await getRedisClient();
-  const keys = await redisClient.keys(`monthly_summary:${userId}:*`);
-  if (keys.length > 0) {
-    await redisClient.del(keys);
-  }
-};
+const { invalidateUserSummaries } = require("../services/cacheService");
 
 // @route   POST api/expenses
 // @desc    Create a new expense
@@ -42,7 +34,7 @@ router.post("/", auth, expenseValidation, validateRequest, async (req, res) => {
     const expense = await newExpense.save();
 
     // Invalidate Redis cache for monthly summaries
-    await invalidateMonthlyCache(req.user.id);
+    await invalidateUserSummaries(req.user.id);
 
     // Queue a job for analytics recalculation
     await publishToQueue(process.env.RABBITMQ_ANALYTICS_QUEUE, {
@@ -150,7 +142,7 @@ router.put(
       expense = await expense.save();
 
       // Invalidate Redis cache for monthly summaries
-      await invalidateMonthlyCache(req.user.id);
+      await invalidateUserSummaries(req.user.id);
 
       // Queue a job for analytics recalculation
       await publishToQueue(process.env.RABBITMQ_ANALYTICS_QUEUE, {
@@ -189,7 +181,7 @@ router.delete("/:id", auth, async (req, res) => {
     await expense.deleteOne();
 
     // Invalidate Redis cache for monthly summaries
-    await invalidateMonthlyCache(req.user.id);
+    await invalidateUserSummaries(req.user.id);
 
     // Queue a job for analytics recalculation
     await publishToQueue(process.env.RABBITMQ_ANALYTICS_QUEUE, {

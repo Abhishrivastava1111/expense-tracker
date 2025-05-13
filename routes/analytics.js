@@ -4,6 +4,7 @@ const auth = require("../middleware/auth");
 const { getRedisClient } = require("../config/redis");
 const { publishToQueue } = require("../config/rabbitmq");
 const Expense = require("../models/Expense");
+const { default: mongoose } = require("mongoose");
 
 // @route   GET api/analytics/summary
 // @desc    Get overall spending summary
@@ -26,7 +27,7 @@ router.get("/summary", auth, async (req, res) => {
 
     // Get total amount spent
     const totalResult = await Expense.aggregate([
-      { $match: { user: userId } },
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]);
 
@@ -34,7 +35,7 @@ router.get("/summary", auth, async (req, res) => {
 
     // Get spending by category
     const categoryBreakdown = await Expense.aggregate([
-      { $match: { user: userId } },
+      { $match: { user: new mongoose.Types.ObjectId(userId), } },
       { $group: { _id: "$category", total: { $sum: "$amount" } } },
       { $sort: { total: -1 } },
     ]);
@@ -46,7 +47,7 @@ router.get("/summary", auth, async (req, res) => {
     const monthlySpending = await Expense.aggregate([
       {
         $match: {
-          user: userId,
+          user:  new mongoose.Types.ObjectId(userId),
           date: { $gte: sixMonthsAgo },
         },
       },

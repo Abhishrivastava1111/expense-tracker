@@ -190,6 +190,7 @@ const generateOverallSummary = async (userId) => {
        * @returns {Promise<Object>} - Analysis results
        */
       const analyzeSpendingPatterns = async (userId) => {
+        debugger;
         try {
           // Mark analysis as processing
           await markSpendingPatternsProcessing(userId);
@@ -356,21 +357,43 @@ const generateOverallSummary = async (userId) => {
             .slice(0, 3);
 
           // Calculate overall spending trend
-          const totalsByMonth = sortedMonthlyData.map((month) => {
-            return {
-              year: month.year,
-              month: month.month,
-              total: Object.values(month.categories).reduce(
-                (sum, amount) => sum + amount,
-                0
-              ),
-            };
+          // Fill missing months with zero totals for consistent 6-month data
+          const currentDate2 = new Date();
+          const sixMonthsAgo2 = new Date();
+          sixMonthsAgo2.setMonth(currentDate2.getMonth() - 6);
+
+          // Create a map for quick lookup of totals by month
+          const totalsMap = {};
+          sortedMonthlyData.forEach((month) => {
+            const key = `${month.year}-${month.month}`;
+            totalsMap[key] = Object.values(month.categories).reduce(
+              (sum, amount) => sum + amount,
+              0
+            );
           });
+
+          // Generate totalsByMonth with all 6 months, filling missing with 0
+          const totalsByMonth = [];
+          for (let i = 0; i < 6; i++) {
+            const date = new Date(sixMonthsAgo2.getFullYear(), sixMonthsAgo2.getMonth() + i, 1);
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const key = `${year}-${month}`;
+            totalsByMonth.push({
+              year,
+              month,
+              total: totalsMap[key] || 0,
+            });
+          }
 
           let overallTrend = "stable";
           let overallPercentageChange = 0;
 
-          if (totalsByMonth.length >= 2) {
+          // Adjust hasEnoughData condition to require at least 1 month with non-zero total
+          const monthsWithData = totalsByMonth.filter((m) => m.total > 0).length;
+          const hasEnoughData = monthsWithData >= 1;
+
+          if (hasEnoughData && totalsByMonth.length >= 2) {
             const recent = totalsByMonth.slice(-3);
             const previous = totalsByMonth.slice(-6, -3);
 
@@ -447,7 +470,7 @@ const generateOverallSummary = async (userId) => {
             categoryTrends: Object.values(categoryTrends),
             monthlyTotals: totalsByMonth,
             insights,
-            hasEnoughData: sortedMonthlyData.length >= 3,
+            hasEnoughData,
           };
 
           // Store in Redis

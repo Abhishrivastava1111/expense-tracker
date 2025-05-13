@@ -62,13 +62,32 @@ const getMonthlyExpenseSummary = async (userId, month, year) => {
  */
 const invalidateUserSummaries = async (userId) => {
   try {
-    const pattern = `monthly_summary:${userId}:*`;
+    // Invalidate monthly summary cache
+    const monthlyPattern = `monthly_summary:${userId}:*`;
     const redisClient = await getRedisClient();
-    const keys = await redisClient.keys(pattern);
 
-    if (keys.length > 0) {
-      await redisClient.del(keys);
+    // Log the monthly summary keys being deleted
+    const monthlyKeys = await redisClient.keys(monthlyPattern);
+    console.log(
+      `Found ${monthlyKeys.length} monthly summary keys to invalidate for user ${userId}:`,
+      monthlyKeys
+    );
+
+    if (monthlyKeys.length > 0) {
+      const deletedMonthlyCount = await redisClient.del(monthlyKeys);
+      console.log(
+        `Successfully deleted ${deletedMonthlyCount} monthly summary keys for user ${userId}`
+      );
     }
+
+    // Invalidate analytics summary cache
+    const analyticsKey = `analytics_summary:${userId}`;
+    const deletedAnalytics = await redisClient.del(analyticsKey);
+    console.log(
+      `Analytics summary cache invalidation for user ${userId}: ${
+        deletedAnalytics ? "deleted" : "not found"
+      }`
+    );
 
     return true;
   } catch (error) {
